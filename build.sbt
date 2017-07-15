@@ -13,7 +13,7 @@ lazy val http4sVersion            = "0.15.2a"
 lazy val scalaXmlVerson           = "1.0.6"
 lazy val scalaParsersVersion      = "1.0.4"
 lazy val tucoVersion              = "0.1.1"
-lazy val attoVersion              = "0.5.2"
+lazy val attoVersion              = "0.5.3"
 
 enablePlugins(GitVersioning)
 
@@ -49,10 +49,10 @@ organizationName in ThisBuild := "Association of Universities for Research in As
 startYear        in ThisBuild := Some(2017)
 licenses         in ThisBuild += ("BSD-3-Clause", new URL("https://opensource.org/licenses/BSD-3-Clause"))
 
-lazy val testLibs = Seq(
-  "org.scalatest"  %% "scalatest"  % scalaTestVersion  % "test",
-  "org.scalacheck" %% "scalacheck" % scalaCheckVersion % "test"
-)
+lazy val testLibs = Def.setting(Seq(
+  "org.scalatest"  %%% "scalatest"  % scalaTestVersion  % "test",
+  "org.scalacheck" %%% "scalacheck" % scalaCheckVersion % "test"
+))
 
 lazy val gemWarts =
   Warts.allBut(
@@ -125,12 +125,12 @@ lazy val commonSettings = Seq(
     "-Ywarn-unused:params",              // Warn if a value parameter is unused.
     // "-Ywarn-unused:patvars",             // Warn if a variable bound in a pattern is unused.
     "-Ywarn-unused:privates",            // Warn if a private member is unused.
-    "-Ywarn-value-discard",              // Warn when non-Unit expression results are unused.
-    "-Yinduction-heuristics",            // speeds up the compilation of inductive implicit resolution
+    "-Ywarn-value-discard"              // Warn when non-Unit expression results are unused.
+    // "-Yinduction-heuristics",            // speeds up the compilation of inductive implicit resolution
     // "-Ykind-polymorphism",               // type and method definitions with type parameters of arbitrary kinds
-    "-Yliteral-types",                   // literals can appear in type position
-    "-Xstrict-patmat-analysis",          // more accurate reporting of failures of match exhaustivity
-    "-Xlint:strict-unsealed-patmat"      // warn on inexhaustive matches against unsealed traits
+    // "-Yliteral-types",                   // literals can appear in type position
+    // "-Xstrict-patmat-analysis",          // more accurate reporting of failures of match exhaustivity
+    // "-Xlint:strict-unsealed-patmat"      // warn on inexhaustive matches against unsealed traits
   ),
   scalacOptions in (Compile, console) ~= (_.filterNot(Set(
     "-Xfatal-warnings",
@@ -144,7 +144,7 @@ lazy val commonSettings = Seq(
     "-doc-version", version.value
   ),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % kpVersion),
-  libraryDependencies ++= (scalaOrganization.value %  "scala-reflect" % scalaVersion.value +: testLibs),
+  libraryDependencies ++= (scalaOrganization.value % "scala-reflect" % scalaVersion.value +: testLibs.value),
   name := "gem-" + name.value
 )
 
@@ -161,27 +161,49 @@ lazy val flywaySettings = Seq(
 lazy val gem = project
   .in(file("."))
   .settings(scalaVersion := "2.11.8")
-  .aggregate(core, db, json, ocs2, service, telnetd, ctl)
+  .aggregate(coreJVM, coreJS, db, json, ocs2, service, telnetd, ctl)
 
-lazy val core = project
+lazy val core = crossProject
+  .crossType(CrossType.Pure)
   .in(file("modules/core"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.scalaz"   %% "scalaz-core"          % scalazVersion,
-      "com.chuusai"  %% "shapeless"            % shapelessVersion,
-      "org.tpolecat" %% "atto-core"            % attoVersion,
-      "org.tpolecat" %% "atto-compat-scalaz72" % attoVersion
+      "org.scalaz"   %%% "scalaz-core"          % scalazVersion,
+      "com.chuusai"  %%% "shapeless"            % shapelessVersion,
+      "org.tpolecat" %%% "atto-core"            % attoVersion,
+      "org.tpolecat" %%% "atto-compat-scalaz72" % attoVersion
     ),
     sourceGenerators in Compile +=
-      Def.task { gen2((sourceManaged in Compile).value / "gem").unsafePerformIO }.taskValue
+      Def.task { gen2((sourceManaged in Compile).value / "gem").unsafePerformIO }.taskValue,
+    // This is needed to support the TLS compiler and scala.js at the same time
+    libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
+      libDeps.filterNot(dep => dep.name == "scalajs-compiler")
+    }
   )
+  .jsSettings(
+    // Skip using the typelevel compiler until interoperability is improved
+    // scalaOrganization := "org.scala-lang",
+    // scalaVersion := "2.12.2",
+    libraryDependencies +=
+      "io.github.cquiroz" % "scala-java-time_sjs0.6_2.12" % "2.0.0-M12",
+    // Skip compiler options for the typelevel compiler
+    scalacOptions ~= (_.filterNot(Set(
+      "-Yinduction-heuristics",
+      "-Yliteral-types",
+      "-Xstrict-patmat-analysis",
+      "-Xlint:strict-unsealed-patmat"
+    )))
+  )
+
+lazy val coreJVM = core.jvm
+lazy val coreJS = core.js
 
 lazy val db = project
   .in(file("modules/db"))
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(core % "compile->compile;test->test")
+  .dependsOn(coreJVM % "compile->compile;test->test")
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
@@ -206,7 +228,7 @@ lazy val db = project
 lazy val json = project
   .in(file("modules/json"))
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(core)
+  .dependsOn(coreJVM)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
@@ -227,7 +249,7 @@ lazy val sql = project
 lazy val ocs2 = project
   .in(file("modules/ocs2"))
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(core, db, sql)
+  .dependsOn(coreJVM, db, sql)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
@@ -243,7 +265,7 @@ lazy val ocs2 = project
 lazy val service = project
   .in(file("modules/service"))
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(core, db)
+  .dependsOn(coreJVM, db)
   .settings(commonSettings)
 
 lazy val telnetd = project
