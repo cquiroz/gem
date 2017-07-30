@@ -78,8 +78,9 @@ lazy val commonSettings = Seq(
   wartremoverErrors in (Compile, compile) := gemWarts,
   wartremoverErrors in (Test,    compile) := gemWarts,
 
-  scalaOrganization := "org.typelevel",
-  scalaVersion := "2.12.2-bin-typelevel-4",
+  // scalaOrganization := "org.typelevel",
+  // scalaVersion := "2.12.2-bin-typelevel-4",
+  scalaVersion := "2.12.2",
   scalacOptions ++= Seq(
     "-deprecation",                      // Emit warning and location for usages of deprecated APIs.
     "-encoding", "utf-8",                // Specify character encoding used by source files.
@@ -138,6 +139,11 @@ lazy val commonSettings = Seq(
   ))),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % kpVersion),
   libraryDependencies ++= (scalaOrganization.value % "scala-reflect" % scalaVersion.value +: testLibs.value),
+  // libraryDependencies ++= testLibs.value,
+    // This is needed to support the TLS compiler and scala.js at the same time
+    // libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
+      // libDeps.filterNot(dep => dep.name == "scalajs-compiler")
+    // },
   name := "gem-" + name.value
 )
 
@@ -169,25 +175,19 @@ lazy val core = crossProject
       "org.tpolecat" %%% "atto-compat-scalaz72" % attoVersion
     ),
     sourceGenerators in Compile +=
-      Def.task { gen2((sourceManaged in Compile).value / "gem").unsafePerformIO }.taskValue,
-    // This is needed to support the TLS compiler and scala.js at the same time
-    libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
-      libDeps.filterNot(dep => dep.name == "scalajs-compiler")
-    }
+      Def.task { gen2((sourceManaged in Compile).value / "gem").unsafePerformIO }.taskValue
   )
   .jsSettings(
     // Skip using the typelevel compiler until interoperability is improved
-    // scalaOrganization := "org.scala-lang",
-    // scalaVersion := "2.12.2",
     libraryDependencies +=
-      "io.github.cquiroz" % "scala-java-time_sjs0.6_2.12" % "2.0.0-M12",
+      "io.github.cquiroz" % "scala-java-time_sjs0.6_2.12" % "2.0.0-M12"
     // Skip compiler options for the typelevel compiler
-    scalacOptions ~= (_.filterNot(Set(
-      "-Yinduction-heuristics",
-      "-Yliteral-types",
-      "-Xstrict-patmat-analysis",
-      "-Xlint:strict-unsealed-patmat"
-    )))
+    // scalacOptions ~= (_.filterNot(Set(
+    //   "-Yinduction-heuristics",
+    //   "-Yliteral-types",
+    //   "-Xstrict-patmat-analysis",
+    //   "-Xlint:strict-unsealed-patmat"
+    // )))
   )
 
 lazy val coreJVM = core.jvm
