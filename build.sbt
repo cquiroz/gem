@@ -78,9 +78,8 @@ lazy val commonSettings = Seq(
   wartremoverErrors in (Compile, compile) := gemWarts,
   wartremoverErrors in (Test,    compile) := gemWarts,
 
-  // scalaOrganization := "org.typelevel",
-  // scalaVersion := "2.12.2-bin-typelevel-4",
-  scalaVersion := "2.12.2",
+  scalaOrganization := "org.typelevel",
+  scalaVersion := "2.12.2-bin-typelevel-4",
   scalacOptions ++= Seq(
     "-deprecation",                      // Emit warning and location for usages of deprecated APIs.
     "-encoding", "utf-8",                // Specify character encoding used by source files.
@@ -126,12 +125,12 @@ lazy val commonSettings = Seq(
     "-Ywarn-unused:params",              // Warn if a value parameter is unused.
     // "-Ywarn-unused:patvars",             // Warn if a variable bound in a pattern is unused.
     "-Ywarn-unused:privates",            // Warn if a private member is unused.
-    "-Ywarn-value-discard"              // Warn when non-Unit expression results are unused.
+    "-Ywarn-value-discard",              // Warn when non-Unit expression results are unused.
     // "-Yinduction-heuristics",            // speeds up the compilation of inductive implicit resolution
-    // "-Ykind-polymorphism",               // type and method definitions with type parameters of arbitrary kinds
-    // "-Yliteral-types",                   // literals can appear in type position
-    // "-Xstrict-patmat-analysis",          // more accurate reporting of failures of match exhaustivity
-    // "-Xlint:strict-unsealed-patmat"      // warn on inexhaustive matches against unsealed traits
+    "-Ykind-polymorphism",               // type and method definitions with type parameters of arbitrary kinds
+    "-Yliteral-types",                   // literals can appear in type position
+    "-Xstrict-patmat-analysis",          // more accurate reporting of failures of match exhaustivity
+    "-Xlint:strict-unsealed-patmat"      // warn on inexhaustive matches against unsealed traits
   ),
   scalacOptions in (Compile, console) ~= (_.filterNot(Set(
     "-Xfatal-warnings",
@@ -139,11 +138,6 @@ lazy val commonSettings = Seq(
   ))),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % kpVersion),
   libraryDependencies ++= (scalaOrganization.value % "scala-reflect" % scalaVersion.value +: testLibs.value),
-  // libraryDependencies ++= testLibs.value,
-    // This is needed to support the TLS compiler and scala.js at the same time
-    // libraryDependencies ~= { (libDeps: Seq[ModuleID]) =>
-      // libDeps.filterNot(dep => dep.name == "scalajs-compiler")
-    // },
   name := "gem-" + name.value
 )
 
@@ -180,14 +174,12 @@ lazy val core = crossProject
   .jsSettings(
     // Skip using the typelevel compiler until interoperability is improved
     libraryDependencies +=
-      "io.github.cquiroz" % "scala-java-time_sjs0.6_2.12" % "2.0.0-M12"
-    // Skip compiler options for the typelevel compiler
-    // scalacOptions ~= (_.filterNot(Set(
-    //   "-Yinduction-heuristics",
-    //   "-Yliteral-types",
-    //   "-Xstrict-patmat-analysis",
-    //   "-Xlint:strict-unsealed-patmat"
-    // )))
+      "io.github.cquiroz" % "scala-java-time_sjs0.6_2.12" % "2.0.0-M12",
+    // These settings allow to use TLS with scala.js
+    // Remove the dependency on the scalajs-compiler
+    libraryDependencies := libraryDependencies.value.filterNot(_.name == "scalajs-compiler"),
+    // And add a custom one
+    addCompilerPlugin("org.scala-js" % "scalajs-compiler" % scalaJSVersion cross CrossVersion.patch)
   )
 
 lazy val coreJVM = core.jvm
